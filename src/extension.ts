@@ -1,8 +1,11 @@
 import * as vscode from 'vscode';
 
+let activeErrorDecorations: vscode.DecorationOptions[] = [];
+let decorationType: vscode.TextEditorDecorationType;
+
 export function activate(context: vscode.ExtensionContext) {
     // Register the command
-    let disposable = vscode.commands.registerCommand('extension.checkGrammar', async () => {
+    let disposable = vscode.commands.registerCommand('krissugramma.checkGrammar', async () => {
         const editor = vscode.window.activeTextEditor;
         if (!editor) {
             vscode.window.showErrorMessage('No active editor found.');
@@ -22,11 +25,11 @@ export function activate(context: vscode.ExtensionContext) {
         const url = `https://www.filosoft.ee/html_speller_et/html_spell.cgi?doc=${formattedText}&out=T&suggest=yes`;
 
         try {
-			const response = await fetch(url,{
-				headers: {
-					"Referer":"https://www.filosoft.ee/html_speller_et/"
-				  },
-			});
+            const response = await fetch(url, {
+                headers: {
+                    "Referer": "https://www.filosoft.ee/html_speller_et/"
+                },
+            });
             const html = await response.text();
 
             // Use regex to find words inside <span data-fs-suggest="..."> tags.
@@ -42,21 +45,23 @@ export function activate(context: vscode.ExtensionContext) {
                 return;
             }
 
-            // Create a text editor decoration type (e.g., red background highlight).
-            const decorationType = vscode.window.createTextEditorDecorationType({
-                backgroundColor: 'rgba(255,0,0,0.3)'
-            });
+            // Create or update the decoration type (red translucent background).
+            if (!decorationType) {
+                decorationType = vscode.window.createTextEditorDecorationType({
+                    backgroundColor: 'rgba(255,0,0,0.3)'
+                });
+            }
 
-            const decorationsArray: vscode.DecorationOptions[] = [];
+            activeErrorDecorations = [];
             const documentText = editor.document.getText();
 
-            // For each wrong word, find its occurrences in the document and create decoration ranges.
+            // For each wrong word, find its occurrences and create decoration ranges.
             wrongWords.forEach(word => {
                 let startIndex = 0;
                 while ((startIndex = documentText.indexOf(word, startIndex)) !== -1) {
                     const startPos = editor.document.positionAt(startIndex);
                     const endPos = editor.document.positionAt(startIndex + word.length);
-                    decorationsArray.push({
+                    activeErrorDecorations.push({
                         range: new vscode.Range(startPos, endPos),
                         hoverMessage: 'Possibly incorrect word'
                     });
@@ -64,15 +69,87 @@ export function activate(context: vscode.ExtensionContext) {
                 }
             });
 
-            // Apply decorations to the editor.
-            editor.setDecorations(decorationType, decorationsArray);
+            // Apply decorations.
+            editor.setDecorations(decorationType, activeErrorDecorations);
             vscode.window.showInformationMessage(`Grammar check complete: Found ${wrongWords.length} mistake(s).`);
         } catch (error) {
             vscode.window.showErrorMessage('Error checking grammar: ' + error);
         }
     });
 
+    let suggestionDisposable = vscode.commands.registerCommand('krissugramma.getSuggestions', async () => {
+        const editor = vscode.window.activeTextEditor;
+        if (!editor) {
+            vscode.window.showErrorMessage('No active editor found.');
+            return;
+        }
+        const selection = editor.selection;
+        let selectedText = editor.document.getText(selection).trim();
+        if (!selectedText) {
+            vscode.window.showInformationMessage('Please select a word for suggestions.');
+            return;
+        }
+        // Construct the URL for the suggestion API.
+        const url = `https://www.filosoft.ee/html_speller_et/suggest.cgi?word=${encodeURIComponent(selectedText)}`;
+        try {
+            const response = await fetch(url);
+            const html = await response.text();
+            // Extract content from the <body> tag.
+            const bodyMatch = html.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
+            if (!bodyMatch) {
+                vscode.window.showInformationMessage('No suggestions available.');
+                return;
+            }
+            let bodyContent = bodyMatch[1];
+            // Split suggestions by <br> tags and remove any HTML tags.
+            const suggestions = bodyContent
+                .split(/<br\s*\/?>/)
+                .map(s => s.replace(/<[^>]+>/g, '').trim())
+                .filter(s => s.length > 0);
+
+            suggestions.pop();
+
+            if (suggestions.length === 0) {
+                vscode.window.showInformationMessage('No suggestions found.');
+                return;
+            }
+
+            // Show suggestions in a quick pick menu.
+            const selectedSuggestion = await vscode.window.showQuickPick(suggestions, {
+                placeHolder: `Suggestions for "${selectedText}"`,
+            });
+            if (selectedSuggestion) {
+                // Replace the selected word with the chosen suggestion.
+                editor.edit(editBuilder => {
+                    editBuilder.replace(selection, selectedSuggestion);
+                });
+            }
+        } catch (error) {
+            vscode.window.showErrorMessage('Error fetching suggestions: ' + error);
+        }
+    });
+
+    // Listen to text document changes to remove decorations as the user edits.
+    vscode.workspace.onDidChangeTextDocument(e => {
+        const editor = vscode.window.activeTextEditor;
+        if (!editor || e.document !== editor.document || !decorationType) {
+            return;
+        }
+
+        // For each change, filter out decorations that intersect with the changed range.
+        e.contentChanges.forEach(change => {
+            activeErrorDecorations = activeErrorDecorations.filter(dec => {
+                // Check if the changed range intersects the decoration's range.
+                // If it does, remove that decoration.
+                return !dec.range.intersection(change.range);
+            });
+        });
+        // Update the decorations.
+        editor.setDecorations(decorationType, activeErrorDecorations);
+    });
+
+    context.subscriptions.push(suggestionDisposable);
     context.subscriptions.push(disposable);
 }
 
-export function deactivate() {}
+export function deactivate() { }

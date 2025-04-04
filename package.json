@@ -14,8 +14,21 @@
   "contributes": {
     "commands": [
       {
-        "command": "krissugramma.helloWorld",
-        "title": "Hello World"
+        "command": "krissugramma.checkGrammar",
+        "title": "Estonian spellcheck document"
+      },
+      {
+        "command": "krissugramma.getSuggestions",
+        "title": "Get Spelling Suggestions"
+      }
+    ]
+  },
+  "menus": {
+    "editor/context": [
+      {
+        "command": "krissugramma.getSuggestions",
+        "when": "editorHasSelection",
+        "group": "navigation"
       }
     ]
   },
