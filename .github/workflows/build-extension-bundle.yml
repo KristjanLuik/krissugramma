@@ -22,12 +22,20 @@ jobs:
         run: npm ci
 
       - name: Package VS Code Extension
-        run: npx vsce package -o my-extension.vsix
+        run: npx vsce package -o krissugramma.vsix
 
       - name: Upload VSIX Artifact
         uses: actions/upload-artifact@v4
         with:
           name: vscode-extension-package
-          path: my-extension.vsix
+          path: krissugramma.vsix
 
       - run: echo "🍏 This job's status is ${{ job.status }}."
+
+      - name: Create GitHub Release and attach VSIX
+        uses: ncipollo/release-action@v1
+        with:
+            tag: 'v${{ env.RELEASE_VERSION }}'  # Or a fixed tag if desired
+            release_name: 'Release ${{ env.RELEASE_VERSION }}'
+            artifacts: krissugramma.vsix
+            prerelease: false   # Set to true if it's a pre-release

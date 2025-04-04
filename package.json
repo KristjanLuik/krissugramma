@@ -26,7 +26,7 @@
     "pretest": "npm run compile && npm run lint",
     "lint": "eslint src",
     "test": "vscode-test",
-    "generate-package": "vsce package"
+    "generate-package": "npx vsce package -o krissugramma.vsix"
   },
   "devDependencies": {
     "@types/vscode": "^1.99.0",
