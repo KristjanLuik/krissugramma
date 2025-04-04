@@ -32,8 +32,12 @@ jobs:
 
       - run: echo "🍏 This job's status is ${{ job.status }}."
 
+      - name: Set RELEASE_VERSION environment variable
+        run: echo "RELEASE_VERSION=$(date +'%Y.%m.%d.%H%M%S')" >> $GITHUB_ENV
+
       - name: Create GitHub Release and attach VSIX
         uses: ncipollo/release-action@v1
         with:
+            tag: 'v${{ env.RELEASE_VERSION }}'
             artifacts: krissugramma.vsix
             prerelease: false  
