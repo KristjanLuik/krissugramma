@@ -1,20 +1,33 @@
-name: GitHub Actions Demo
-run-name: ${{ github.actor }} is testing out GitHub Actions 🚀
-on: [push]
+name: Package VS Code Extension
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
 jobs:
-  Explore-GitHub-Actions:
+  build:
     runs-on: ubuntu-latest
     steps:
-        - name: Checkout
-          uses: actions/checkout@v3
-      
-        - name: Package VS Code extension
-          id: package
-          uses: nhedger/package-vscode-extension@v1
-      
-        - name: Publish VS Code extension artifact
-          uses: actions/upload-artifact@v3
-          with:
-            name: my-extension
-            path: ${{ steps.package.outputs.packagePath }}
-        - run: echo "🍏 This job's status is ${{ job.status }}."
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '22'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Package VS Code Extension
+        run: npx vsce package -o my-extension.vsix
+
+      - name: Upload VSIX Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: vscode-extension-package
+          path: my-extension.vsix
+
+      - run: echo "🍏 This job's status is ${{ job.status }}."
