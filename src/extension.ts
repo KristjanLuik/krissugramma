@@ -5,7 +5,7 @@ let decorationType: vscode.TextEditorDecorationType;
 
 export function activate(context: vscode.ExtensionContext) {
     // Register the command
-    let disposable = vscode.commands.registerCommand('krissugramma.checkGrammar', async () => {
+    let checkDisposable = vscode.commands.registerCommand('krissugramma.checkGrammar', async () => {
         const editor = vscode.window.activeTextEditor;
         if (!editor) {
             vscode.window.showErrorMessage('No active editor found.');
@@ -14,10 +14,22 @@ export function activate(context: vscode.ExtensionContext) {
 
         // Get the selected text; if nothing is selected, use the whole document
         const selection = editor.selection;
-        const text = editor.document.getText(selection.isEmpty ? undefined : selection);
+        //current file type
+        const fileType = editor.document.languageId;
+
+        let text = editor.document.getText(selection.isEmpty ? undefined : selection);
         if (!text) {
             vscode.window.showInformationMessage('No text to check.');
             return;
+        }
+
+        if (editor.document.languageId === 'latex') {
+            // Remove LaTeX commands (e.g. \command, \command{...}, \command*[...]{...}).
+            text = text.replace(/\\[a-zA-Z]+\*?(?:\[[^\]]*\])?(?:\{[^}]*\})*/g, "");
+            // Remove inline math: $...$
+            text = text.replace(/\$[^$]+\$/g, "");
+            // Remove display math: \[...\]
+            text = text.replace(/\\\[[\s\S]*?\\\]/g, "");
         }
 
         // Format text: join each word with a plus sign.
@@ -94,7 +106,7 @@ export function activate(context: vscode.ExtensionContext) {
         try {
             const response = await fetch(url);
             const html = await response.text();
-            // Extract content from the <body> tag.
+
             const bodyMatch = html.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
             if (!bodyMatch) {
                 vscode.window.showInformationMessage('No suggestions available.');
@@ -149,7 +161,7 @@ export function activate(context: vscode.ExtensionContext) {
     });
 
     context.subscriptions.push(suggestionDisposable);
-    context.subscriptions.push(disposable);
+    context.subscriptions.push(checkDisposable);
 }
 
 export function deactivate() { }
