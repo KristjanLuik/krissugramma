@@ -10,6 +10,7 @@ Command pallet: <kbd>💢</kbd> + <kbd>⬆️</kbd> + <kbd>🅿️</kbd>
 
 ### Get suggestions for words
 >krissugramma.getSuggestions
+
 ![](documentation/suggest_out.gif)
 
 **Enjoy!**
