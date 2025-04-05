@@ -95,11 +95,19 @@ export function activate(context: vscode.ExtensionContext) {
             vscode.window.showErrorMessage('No active editor found.');
             return;
         }
-        const selection = editor.selection;
+        let selection = editor.selection;
         let selectedText = editor.document.getText(selection).trim();
+        // If no text is selected, get the word at the cursor.
         if (!selectedText) {
-            vscode.window.showInformationMessage('Please select a word for suggestions.');
-            return;
+            const wordRange = editor.document.getWordRangeAtPosition(selection.start);
+            if (wordRange) {
+                selectedText = editor.document.getText(wordRange);
+                // Update selection to the word range for replacement.
+                selection = new vscode.Selection(wordRange.start, wordRange.end);
+            } else {
+                vscode.window.showInformationMessage('Please position the cursor on a word for suggestions.');
+                return;
+            }
         }
         // Construct the URL for the suggestion API.
         const url = `https://www.filosoft.ee/html_speller_et/suggest.cgi?word=${encodeURIComponent(selectedText)}`;
